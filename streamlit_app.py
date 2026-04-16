@@ -132,7 +132,7 @@ def main():
             
             alpha_clust = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_clustering_coefficient'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_clustering_coefficient', 0.5), 
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_alpha_clustering_coefficient', 0.5)), 
                 step=0.01, format="%.4f",
                 key="alpha_clust_input",
                 help="Global alpha band clustering coefficient"
@@ -141,7 +141,7 @@ def main():
             
             alpha_deg = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_degree_centrality_mean'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_degree_centrality_mean', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_alpha_degree_centrality_mean', 0.5)),
                 step=0.01, format="%.4f",
                 key="alpha_deg_input",
                 help="Mean degree centrality in alpha band"
@@ -150,7 +150,7 @@ def main():
             
             alpha_plv = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_mean_plv'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_mean_plv', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_alpha_mean_plv', 0.5)),
                 step=0.01, format="%.4f",
                 key="alpha_plv_input",
                 help="Mean Phase Locking Value in alpha band"
@@ -159,7 +159,7 @@ def main():
             
             alpha_path = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_characteristic_path_length'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_characteristic_path_length', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_alpha_characteristic_path_length', 0.5)),
                 step=0.01, format="%.4f",
                 key="alpha_path_input",
                 help="Characteristic path length in alpha band"
@@ -168,20 +168,20 @@ def main():
             
             alpha_effic = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_global_efficiency'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_global_efficiency', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_alpha_global_efficiency', 0.5)),
                 step=0.01, format="%.4f",
                 key="alpha_effic_input",
                 help="Global efficiency in alpha band"
             )
             st.session_state['global_alpha_global_efficiency'] = alpha_effic
         
-        # Beta and Gamma features
+        # Beta band features
         with col2:
             st.markdown("#### 🧬 Beta Band Features")
             
             beta_deg = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_beta_degree_centrality_mean'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_beta_degree_centrality_mean', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_beta_degree_centrality_mean', 0.5)),
                 step=0.01, format="%.4f",
                 key="beta_deg_input",
                 help="Mean degree centrality in beta band"
@@ -190,7 +190,7 @@ def main():
             
             beta_plv = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_beta_mean_plv'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('global_beta_mean_plv', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('global_beta_mean_plv', 0.5)),
                 step=0.01, format="%.4f",
                 key="beta_plv_input",
                 help="Mean Phase Locking Value in beta band"
@@ -199,18 +199,20 @@ def main():
             
             beta_fp2_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['beta_Fp2-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('beta_Fp2-O2_PLV', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('beta_Fp2-O2_PLV', 0.5)),
                 step=0.01, format="%.4f",
                 key="beta_fp2_o2_input",
                 help="Beta band PLV between Fp2 and O2 channels"
             )
             st.session_state['beta_Fp2-O2_PLV'] = beta_fp2_o2
-            
+        
+        # Gamma band features
+        with col3:
             st.markdown("#### 🧬 Gamma Band Features")
             
             gamma_fp2_f8 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_Fp2-F8_PLV'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_Fp2-F8_PLV', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('gamma_Fp2-F8_PLV', 0.5)),
                 step=0.01, format="%.4f",
                 key="gamma_fp2_f8_input",
                 help="Gamma band PLV between Fp2 and F8 channels"
@@ -219,25 +221,23 @@ def main():
             
             gamma_fp2_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_Fp2-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_Fp2-O2_PLV', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('gamma_Fp2-O2_PLV', 0.5)),
                 step=0.01, format="%.4f",
                 key="gamma_fp2_o2_input",
                 help="Gamma band PLV between Fp2 and O2 channels"
             )
             st.session_state['gamma_Fp2-O2_PLV'] = gamma_fp2_o2
-        
-        with col3:
-            st.markdown("#### 🧬 Additional Features")
             
             gamma_f7_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_F7-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_F7-O2_PLV', 0.5),
+                min_value=0.0, max_value=1.0, value=float(st.session_state.get('gamma_F7-O2_PLV', 0.5)),
                 step=0.01, format="%.4f",
                 key="gamma_f7_o2_input",
                 help="Gamma band PLV between F7 and O2 channels"
             )
             st.session_state['gamma_F7-O2_PLV'] = gamma_f7_o2
             
+            st.markdown("---")
             st.markdown("#### 🚀 Quick Presets")
             
             if st.button("📊 Average Features", use_container_width=True, key="preset_avg"):
@@ -302,10 +302,10 @@ def main():
             
             with col_res2:
                 if probability >= THRESHOLD:
-                    st.success(f"✅ MCS Positive")
+                    st.success("✅ MCS Positive")
                     st.caption(f"Probability ≥ {THRESHOLD:.1%}")
                 else:
-                    st.error(f"❌ MCS Negative")
+                    st.error("❌ MCS Negative")
                     st.caption(f"Probability < {THRESHOLD:.1%}")
             
             with col_res3:
@@ -394,14 +394,16 @@ def main():
         
         with pre_col1:
             st.markdown("#### 📊 Signal Processing")
-            for key, value in list(PREPROCESSING_CONDITIONS.items())[:4]:
+            items_list = list(PREPROCESSING_CONDITIONS.items())
+            for key, value in items_list[:4]:
                 st.markdown(f"**{key}:**")
                 st.markdown(f"- {value}")
                 st.markdown("")
         
         with pre_col2:
             st.markdown("#### 🔧 Channel Processing")
-            for key, value in list(PREPROCESSING_CONDITIONS.items())[4:]:
+            items_list = list(PREPROCESSING_CONDITIONS.items())
+            for key, value in items_list[4:]:
                 st.markdown(f"**{key}:**")
                 st.markdown(f"- {value}")
                 st.markdown("")
@@ -449,7 +451,7 @@ def main():
             - **Recall (Sensitivity):** 81.82%
             - **Specificity:** 50.94%
             - **F1 Score:** 0.7143
-            - **Best Threshold:** {THRESHOLD:.4f} (Youden's Index)
+            - **Best Threshold:** {THRESHOLD:.4f}
             - **Youden's Index:** {YOUDEN_INDEX:.4f}
             """)
         
@@ -499,6 +501,7 @@ def main():
     st.markdown("---")
     st.caption("© 2025 MCS Prediction System | Logistic Regression Model | Version 2.0 | For Research Use Only")
 
+# ==================== Run the app ====================
 if __name__ == "__main__":
     main()
 streamlit
