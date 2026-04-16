@@ -1,227 +1,467 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
+import os
 
-st.set_page_config(page_title="MCS预测系统", page_icon="🧠")
+st.set_page_config(
+    page_title="MCS Prediction System",
+    page_icon="🧠",
+    layout="wide"
+)
 
-# 模型参数
-INTERCEPT = -4.447085
-THRESHOLD = 0.3802
+# ==================== Model Parameters ====================
+INTERCEPT = 1.167968
+THRESHOLD = 0.4502  # Best threshold from Youden index
 
-def predict(a_clust, a_deg, a_plv, b_deg, b_plv):
+# Model coefficients
+COEFFICIENTS = {
+    'global_alpha_clustering_coefficient': -12.879485,
+    'global_alpha_degree_centrality_mean': 0.293723,
+    'global_alpha_mean_plv': 5.287009,
+    'global_alpha_characteristic_path_length': -0.150704,
+    'global_alpha_global_efficiency': -0.223109,
+    'global_beta_degree_centrality_mean': 0.170574,
+    'global_beta_mean_plv': 3.070339,
+    'beta_Fp2-O2_PLV': -2.299571,
+    'gamma_Fp2-F8_PLV': -0.622310,
+    'gamma_Fp2-O2_PLV': 3.693667,
+    'gamma_F7-O2_PLV': 1.201478
+}
+
+# Feature names in order
+FEATURES = list(COEFFICIENTS.keys())
+
+# Feature display names (for UI)
+FEATURE_DISPLAY_NAMES = {
+    'global_alpha_clustering_coefficient': 'Alpha Clustering Coeff',
+    'global_alpha_degree_centrality_mean': 'Alpha Degree Centrality',
+    'global_alpha_mean_plv': 'Alpha Mean PLV',
+    'global_alpha_characteristic_path_length': 'Alpha Path Length',
+    'global_alpha_global_efficiency': 'Alpha Global Efficiency',
+    'global_beta_degree_centrality_mean': 'Beta Degree Centrality',
+    'global_beta_mean_plv': 'Beta Mean PLV',
+    'beta_Fp2-O2_PLV': 'Beta Fp2-O2 PLV',
+    'gamma_Fp2-F8_PLV': 'Gamma Fp2-F8 PLV',
+    'gamma_Fp2-O2_PLV': 'Gamma Fp2-O2 PLV',
+    'gamma_F7-O2_PLV': 'Gamma F7-O2 PLV'
+}
+
+# ==================== Preprocessing Conditions ====================
+PREPROCESSING_CONDITIONS = {
+    'Sampling Rate': 'Resampled to 250 Hz (if original > 250 Hz)',
+    'Bandpass Filter': '0.5 - 100 Hz (firwin design)',
+    'Notch Filter': '50 Hz (power line noise removal)',
+    'Reference': 'Average reference',
+    'Channel Selection': 'Standard 19 EEG channels (10-20 system)',
+    'Channel Renaming': 'Standardized naming convention',
+    'Valid Channels': 'Minimum 10 channels required'
+}
+
+# ==================== Prediction Function ====================
+def predict(features_dict):
+    """Calculate MCS probability"""
     logit = INTERCEPT
-    logit += 45.092475 * a_clust
-    logit += -1.154255 * a_deg
-    logit += -20.776595 * a_plv
-    logit += 0.279283 * b_deg
-    logit += 5.027090 * b_plv
-    prob = 1 / (1 + np.exp(-logit))
-    return prob, logit
+    for feature, value in features_dict.items():
+        if feature in COEFFICIENTS:
+            logit += COEFFICIENTS[feature] * value
+    probability = 1 / (1 + np.exp(-logit))
+    return probability, logit
 
-# 主标题
-st.title("🧠 MCS预测验证系统")
-st.markdown("基于脑网络特征的微意识状态预测")
-
-# 侧边栏
-with st.sidebar:
-    st.header("📊 模型性能")
-    st.metric("AUC", "0.670 (95% CI: 0.565-0.770)")
-    st.metric("准确率", "63.89%")
-    st.metric("敏感度", "87.27%")
-    st.metric("特异度", "39.62%")
-    st.metric("最佳阈值", "0.3802")
-    
+# ==================== Main UI ====================
+def main():
+    # Header
+    st.title("🧠 MCS Prediction System")
+    st.markdown("**Minimally Conscious State Prediction Model** based on EEG Network Features")
     st.markdown("---")
-    st.markdown("**模型公式:**")
-    st.latex(r"Logit(P) = -4.447 + 45.092 \times \alpha_{clust}")
-    st.latex(r"- 1.154 \times \alpha_{deg} - 20.777 \times \alpha_{plv}")
-    st.latex(r"+ 0.279 \times \beta_{deg} + 5.027 \times \beta_{plv}")
-
-# 使用columns布局
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Alpha频段 (8-13Hz)")
     
-    # 使用数字输入框替代滑块
-    a_clust = st.number_input(
-        "聚类系数",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        format="%.4f",
-        key="alpha_clustering_input",
-        help="网络局部连接密度，值越高表示局部连接越紧密"
-    )
-    
-    a_deg = st.number_input(
-        "度中心性均值",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        format="%.4f",
-        key="alpha_degree_input",
-        help="节点连接强度的平均值"
-    )
-    
-    a_plv = st.number_input(
-        "PLV均值",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        format="%.4f",
-        key="alpha_plv_input",
-        help="相位锁定值均值，反映功能连接强度"
-    )
-
-with col2:
-    st.subheader("Beta频段 (13-30Hz)")
-    
-    b_deg = st.number_input(
-        "度中心性均值",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        format="%.4f",
-        key="beta_degree_input",
-        help="节点连接强度的平均值"
-    )
-    
-    b_plv = st.number_input(
-        "PLV均值",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.5,
-        step=0.01,
-        format="%.4f",
-        key="beta_plv_input",
-        help="相位锁定值均值，反映功能连接强度"
-    )
-
-# 快速预设按钮
-st.markdown("---")
-st.markdown("**快速预设:**")
-preset_cols = st.columns(3)
-
-with preset_cols[0]:
-    if st.button("📊 平均特征", use_container_width=True, key="preset_avg"):
-        st.session_state.alpha_clustering_input = 0.5
-        st.session_state.alpha_degree_input = 0.5
-        st.session_state.alpha_plv_input = 0.5
-        st.session_state.beta_degree_input = 0.5
-        st.session_state.beta_plv_input = 0.5
-        st.rerun()
-
-with preset_cols[1]:
-    if st.button("⬆️ 高风险预设", use_container_width=True, key="preset_high"):
-        st.session_state.alpha_clustering_input = 0.8
-        st.session_state.alpha_degree_input = 0.3
-        st.session_state.alpha_plv_input = 0.2
-        st.session_state.beta_degree_input = 0.7
-        st.session_state.beta_plv_input = 0.8
-        st.rerun()
-
-with preset_cols[2]:
-    if st.button("⬇️ 低风险预设", use_container_width=True, key="preset_low"):
-        st.session_state.alpha_clustering_input = 0.2
-        st.session_state.alpha_degree_input = 0.8
-        st.session_state.alpha_plv_input = 0.8
-        st.session_state.beta_degree_input = 0.3
-        st.session_state.beta_plv_input = 0.2
-        st.rerun()
-
-# 预测按钮
-st.markdown("---")
-if st.button("🔍 预测MCS概率", type="primary", use_container_width=True, key="predict_button"):
-    # 获取当前输入值
-    current_a_clust = st.session_state.get('alpha_clustering_input', 0.5)
-    current_a_deg = st.session_state.get('alpha_degree_input', 0.5)
-    current_a_plv = st.session_state.get('alpha_plv_input', 0.5)
-    current_b_deg = st.session_state.get('beta_degree_input', 0.5)
-    current_b_plv = st.session_state.get('beta_plv_input', 0.5)
-    
-    prob, logit = predict(current_a_clust, current_a_deg, current_a_plv, 
-                         current_b_deg, current_b_plv)
-    
-    st.markdown("---")
-    st.subheader("📊 预测结果")
-    
-    # 使用三列布局
-    col3, col4, col5 = st.columns([2, 1, 1])
-    
-    with col3:
-        st.metric("MCS概率", f"{prob:.2%}")
-        # 使用进度条显示概率
-        st.progress(prob)
-    
-    with col4:
-        if prob >= THRESHOLD:
-            st.success(f"✅ MCS阳性")
-            st.caption(f"概率 ≥ {THRESHOLD:.1%}")
-        else:
-            st.error(f"❌ MCS阴性")
-            st.caption(f"概率 < {THRESHOLD:.1%}")
-    
-    with col5:
-        st.metric("Logit值", f"{logit:.3f}")
-    
-    # 可展开的详细计算
-    with st.expander("📐 查看计算公式详情"):
-        st.markdown("**当前输入参数:**")
-        st.write(f"• α_clust (Alpha聚类系数) = {current_a_clust:.4f}")
-        st.write(f"• α_deg (Alpha度中心性均值) = {current_a_deg:.4f}")
-        st.write(f"• α_plv (Alpha PLV均值) = {current_a_plv:.4f}")
-        st.write(f"• β_deg (Beta度中心性均值) = {current_b_deg:.4f}")
-        st.write(f"• β_plv (Beta PLV均值) = {current_b_plv:.4f}")
+    # Sidebar - Model Information
+    with st.sidebar:
+        st.header("📊 Model Performance")
         
-        st.markdown("**计算过程:**")
-        st.write(f"Logit(P) = {INTERCEPT:.6f}")
-        st.write(f"  + 45.092475 × {current_a_clust:.4f} = {45.092475 * current_a_clust:.6f}")
-        st.write(f"  - 1.154255 × {current_a_deg:.4f} = {-1.154255 * current_a_deg:.6f}")
-        st.write(f"  - 20.776595 × {current_a_plv:.4f} = {-20.776595 * current_a_plv:.6f}")
-        st.write(f"  + 0.279283 × {current_b_deg:.4f} = {0.279283 * current_b_deg:.6f}")
-        st.write(f"  + 5.027090 × {current_b_plv:.4f} = {5.027090 * current_b_plv:.6f}")
-        st.write(f"**Logit(P) = {logit:.6f}**")
-        st.write(f"**P(MCS) = 1/(1+e^(-{logit:.6f})) = {prob:.6f} ({prob:.2%})**")
+        st.metric("AUC", "0.7118 (95% CI: 0.6161-0.8076)")
+        st.metric("Accuracy", "66.67%")
+        st.metric("Precision", "63.38%")
+        st.metric("Recall/Sensitivity", "81.82%")
+        st.metric("Specificity", "50.94%")
+        st.metric("F1 Score", "0.7143")
+        st.metric("Best Threshold", f"{THRESHOLD:.4f}")
+        
+        st.markdown("---")
+        st.markdown("**Model Statistics**")
+        st.metric("Log-Likelihood", "-65.9417")
+        st.metric("McFadden R²", "0.1189")
+        st.metric("AIC", "155.8834")
+        st.metric("BIC", "188.0690")
+        
+        st.markdown("---")
+        st.markdown("**Model Formula**")
+        st.latex(r"Logit(P) = 1.168 - 12.879 \times \alpha_{clust}")
+        st.latex(r"+ 0.294 \times \alpha_{deg} + 5.287 \times \alpha_{plv}")
+        st.latex(r"- 0.151 \times \alpha_{path} - 0.223 \times \alpha_{effic}")
+        st.latex(r"+ 0.171 \times \beta_{deg} + 3.070 \times \beta_{plv}")
+        st.latex(r"- 2.300 \times \beta_{Fp2-O2} - 0.622 \times \gamma_{Fp2-F8}")
+        st.latex(r"+ 3.694 \times \gamma_{Fp2-O2} + 1.201 \times \gamma_{F7-O2}")
     
-    # 临床建议
-    st.info("⚠️ 预测结果仅供参考，请结合临床专业判断")
+    # Main area - Input tabs
+    tab1, tab2, tab3, tab4 = st.tabs(["📝 Single Prediction", "📊 Batch Prediction", "⚙️ Preprocessing Conditions", "📖 Model Info"])
+    
+    # ==================== Tab 1: Single Prediction ====================
+    with tab1:
+        st.markdown("### Input EEG Network Features")
+        st.markdown("Enter values for all 11 features (range: 0-1)")
+        
+        # Create 3 columns for input organization
+        col1, col2, col3 = st.columns(3)
+        
+        features_dict = {}
+        
+        # Alpha band features
+        with col1:
+            st.markdown("#### 🧬 Alpha Band Features")
+            features_dict['global_alpha_clustering_coefficient'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_alpha_clustering_coefficient'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="alpha_clust",
+                help="Global alpha band clustering coefficient"
+            )
+            
+            features_dict['global_alpha_degree_centrality_mean'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_alpha_degree_centrality_mean'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="alpha_deg",
+                help="Mean degree centrality in alpha band"
+            )
+            
+            features_dict['global_alpha_mean_plv'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_alpha_mean_plv'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="alpha_plv",
+                help="Mean Phase Locking Value in alpha band"
+            )
+            
+            features_dict['global_alpha_characteristic_path_length'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_alpha_characteristic_path_length'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="alpha_path",
+                help="Characteristic path length in alpha band"
+            )
+            
+            features_dict['global_alpha_global_efficiency'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_alpha_global_efficiency'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="alpha_effic",
+                help="Global efficiency in alpha band"
+            )
+        
+        # Beta and Gamma features
+        with col2:
+            st.markdown("#### 🧬 Beta Band Features")
+            features_dict['global_beta_degree_centrality_mean'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_beta_degree_centrality_mean'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="beta_deg",
+                help="Mean degree centrality in beta band"
+            )
+            
+            features_dict['global_beta_mean_plv'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['global_beta_mean_plv'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="beta_plv",
+                help="Mean Phase Locking Value in beta band"
+            )
+            
+            features_dict['beta_Fp2-O2_PLV'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['beta_Fp2-O2_PLV'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="beta_plv_fp2_o2",
+                help="Beta band PLV between Fp2 and O2 channels"
+            )
+            
+            st.markdown("#### 🧬 Gamma Band Features")
+            features_dict['gamma_Fp2-F8_PLV'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['gamma_Fp2-F8_PLV'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="gamma_plv_fp2_f8",
+                help="Gamma band PLV between Fp2 and F8 channels"
+            )
+            
+            features_dict['gamma_Fp2-O2_PLV'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['gamma_Fp2-O2_PLV'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="gamma_plv_fp2_o2",
+                help="Gamma band PLV between Fp2 and O2 channels"
+            )
+        
+        with col3:
+            st.markdown("#### 🧬 Additional Features")
+            features_dict['gamma_F7-O2_PLV'] = st.number_input(
+                FEATURE_DISPLAY_NAMES['gamma_F7-O2_PLV'],
+                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
+                key="gamma_plv_f7_o2",
+                help="Gamma band PLV between F7 and O2 channels"
+            )
+            
+            st.markdown("#### 🚀 Quick Presets")
+            if st.button("📊 Average Features", use_container_width=True, key="preset_avg"):
+                for feature in FEATURES:
+                    st.session_state[feature] = 0.5
+                st.rerun()
+            
+            if st.button("⬆️ High Risk Preset", use_container_width=True, key="preset_high"):
+                high_risk_values = {
+                    'global_alpha_clustering_coefficient': 0.2,
+                    'global_alpha_degree_centrality_mean': 0.7,
+                    'global_alpha_mean_plv': 0.8,
+                    'global_alpha_characteristic_path_length': 0.7,
+                    'global_alpha_global_efficiency': 0.3,
+                    'global_beta_degree_centrality_mean': 0.6,
+                    'global_beta_mean_plv': 0.7,
+                    'beta_Fp2-O2_PLV': 0.3,
+                    'gamma_Fp2-F8_PLV': 0.4,
+                    'gamma_Fp2-O2_PLV': 0.8,
+                    'gamma_F7-O2_PLV': 0.7
+                }
+                for feature, value in high_risk_values.items():
+                    st.session_state[feature] = value
+                st.rerun()
+            
+            if st.button("⬇️ Low Risk Preset", use_container_width=True, key="preset_low"):
+                low_risk_values = {
+                    'global_alpha_clustering_coefficient': 0.7,
+                    'global_alpha_degree_centrality_mean': 0.3,
+                    'global_alpha_mean_plv': 0.2,
+                    'global_alpha_characteristic_path_length': 0.3,
+                    'global_alpha_global_efficiency': 0.7,
+                    'global_beta_degree_centrality_mean': 0.4,
+                    'global_beta_mean_plv': 0.3,
+                    'beta_Fp2-O2_PLV': 0.7,
+                    'gamma_Fp2-F8_PLV': 0.6,
+                    'gamma_Fp2-O2_PLV': 0.2,
+                    'gamma_F7-O2_PLV': 0.3
+                }
+                for feature, value in low_risk_values.items():
+                    st.session_state[feature] = value
+                st.rerun()
+        
+        # Prediction button
+        st.markdown("---")
+        if st.button("🔍 Predict MCS Probability", type="primary", use_container_width=True, key="predict_btn"):
+            # Get current values from session state or inputs
+            for feature in FEATURES:
+                if feature in st.session_state:
+                    features_dict[feature] = st.session_state[feature]
+            
+            # Calculate prediction
+            probability, logit = predict(features_dict)
+            
+            # Display results
+            st.markdown("---")
+            st.subheader("📈 Prediction Result")
+            
+            col_res1, col_res2, col_res3 = st.columns([2, 1, 1])
+            
+            with col_res1:
+                st.metric("MCS Probability", f"{probability:.2%}")
+                st.progress(probability)
+            
+            with col_res2:
+                if probability >= THRESHOLD:
+                    st.success(f"✅ MCS Positive")
+                    st.caption(f"Probability ≥ {THRESHOLD:.1%}")
+                else:
+                    st.error(f"❌ MCS Negative")
+                    st.caption(f"Probability < {THRESHOLD:.1%}")
+            
+            with col_res3:
+                st.metric("Logit Value", f"{logit:.4f}")
+            
+            # Detailed calculation
+            with st.expander("📐 View Detailed Calculation"):
+                st.markdown("**Input Features:**")
+                for feature in FEATURES:
+                    st.write(f"• {FEATURE_DISPLAY_NAMES[feature]}: {features_dict.get(feature, 0.5):.4f}")
+                
+                st.markdown("**Calculation Steps:**")
+                st.write(f"Intercept: {INTERCEPT:.6f}")
+                calc_logit = INTERCEPT
+                for feature in FEATURES:
+                    coef = COEFFICIENTS[feature]
+                    val = features_dict.get(feature, 0.5)
+                    term = coef * val
+                    calc_logit += term
+                    st.write(f"+ {coef:.6f} × {val:.4f} = {term:.6f}")
+                st.write(f"**Logit(P) = {calc_logit:.6f}**")
+                st.write(f"**P(MCS) = 1/(1+e^(-{calc_logit:.6f})) = {probability:.6f} ({probability:.2%})**")
+            
+            st.info("⚠️ Prediction is for research purposes only. Please consult clinical professionals for medical decisions.")
+    
+    # ==================== Tab 2: Batch Prediction ====================
+    with tab2:
+        st.markdown("### Batch Prediction")
+        st.markdown("Upload a CSV file with the following 11 feature columns:")
+        
+        st.code("global_alpha_clustering_coefficient, global_alpha_degree_centrality_mean, global_alpha_mean_plv, global_alpha_characteristic_path_length, global_alpha_global_efficiency, global_beta_degree_centrality_mean, global_beta_mean_plv, beta_Fp2-O2_PLV, gamma_Fp2-F8_PLV, gamma_Fp2-O2_PLV, gamma_F7-O2_PLV")
+        
+        # Template download
+        template_df = pd.DataFrame({feature: [0.5] for feature in FEATURES})
+        csv_template = template_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV Template",
+            data=csv_template,
+            file_name="mcs_prediction_template.csv",
+            mime="text/csv"
+        )
+        
+        uploaded_file = st.file_uploader("Choose CSV file", type=['csv'])
+        
+        if uploaded_file is not None:
+            df = pd.read_csv(uploaded_file)
+            st.write("**Data Preview:**", df.head())
+            
+            if all(feature in df.columns for feature in FEATURES):
+                if st.button("Run Batch Prediction", type="primary"):
+                    results = []
+                    for _, row in df.iterrows():
+                        features_dict = {feature: row[feature] for feature in FEATURES}
+                        prob, logit = predict(features_dict)
+                        pred = "Positive" if prob >= THRESHOLD else "Negative"
+                        results.append({"Probability": prob, "Logit": logit, "Prediction": pred})
+                    
+                    result_df = pd.concat([df, pd.DataFrame(results)], axis=1)
+                    st.write("**Prediction Results:**", result_df)
+                    
+                    # Summary statistics
+                    st.markdown("**Summary:**")
+                    col_s1, col_s2, col_s3 = st.columns(3)
+                    positive_count = sum(1 for r in results if r["Prediction"] == "Positive")
+                    with col_s1:
+                        st.metric("Positive Cases", f"{positive_count}/{len(results)}")
+                    with col_s2:
+                        avg_prob = np.mean([r["Probability"] for r in results])
+                        st.metric("Average Probability", f"{avg_prob:.2%}")
+                    with col_s3:
+                        st.metric("Threshold", f"{THRESHOLD:.2%}")
+                    
+                    csv_result = result_df.to_csv(index=False)
+                    st.download_button("📥 Download Results", csv_result, "predictions.csv", "text/csv")
+            else:
+                st.error(f"CSV must contain columns: {', '.join(FEATURES)}")
+    
+    # ==================== Tab 3: Preprocessing Conditions ====================
+    with tab3:
+        st.markdown("### EEG Preprocessing Conditions")
+        st.markdown("The following preprocessing steps are applied to raw EEG data before feature extraction:")
+        
+        # Create two columns for preprocessing info
+        pre_col1, pre_col2 = st.columns(2)
+        
+        with pre_col1:
+            st.markdown("#### 📊 Signal Processing")
+            for key, value in list(PREPROCESSING_CONDITIONS.items())[:4]:
+                st.markdown(f"**{key}:**")
+                st.markdown(f"- {value}")
+                st.markdown("")
+        
+        with pre_col2:
+            st.markdown("#### 🔧 Channel Processing")
+            for key, value in list(PREPROCESSING_CONDITIONS.items())[4:]:
+                st.markdown(f"**{key}:**")
+                st.markdown(f"- {value}")
+                st.markdown("")
+        
+        st.markdown("---")
+        st.markdown("#### 📝 Detailed Preprocessing Steps")
+        st.markdown("""
+        **1. Channel Selection**
+        - Select EEG channels matching standard 10-20 system
+        - Minimum 10 channels required for valid processing
+        - Channels are renamed to standardized nomenclature
+        
+        **2. Resampling**
+        - If original sampling rate > 250 Hz, resample to 250 Hz
+        - Uses numpy padding for anti-aliasing
+        
+        **3. Filtering**
+        - Bandpass filter: 0.5 - 100 Hz (FIR filter, firwin design)
+        - Notch filter: 50 Hz for power line interference removal
+        
+        **4. Re-referencing**
+        - Average reference applied to all channels
+        - No projection mode for stability
+        
+        **5. Channel Standardization**
+        - Channels mapped to standard 19-channel montage
+        - Unmatched channels are dropped
+        - Final output uses standard 10-20 channel names
+        """)
+        
+        st.info("ℹ️ These preprocessing steps ensure data quality and consistency across different EEG recordings.")
+    
+    # ==================== Tab 4: Model Information ====================
+    with tab4:
+        st.markdown("### Model Information")
+        
+        col_info1, col_info2 = st.columns(2)
+        
+        with col_info1:
+            st.markdown("#### 📊 Model Performance Metrics")
+            st.markdown(f"""
+            - **AUC:** 0.7118 (95% CI: 0.6161-0.8076)
+            - **Accuracy:** 66.67%
+            - **Precision:** 63.38%
+            - **Recall (Sensitivity):** 81.82%
+            - **Specificity:** 50.94%
+            - **F1 Score:** 0.7143
+            - **Best Threshold:** {THRESHOLD:.4f} (Youden's Index)
+            """)
+        
+        with col_info2:
+            st.markdown("#### 📈 Model Fit Statistics")
+            st.markdown(f"""
+            - **Log-Likelihood:** -65.9417
+            - **Null Log-Likelihood:** -74.8414
+            - **McFadden Pseudo R²:** 0.1189
+            - **AIC:** 155.8834
+            - **BIC:** 188.0690
+            """)
+        
+        st.markdown("---")
+        st.markdown("#### 🧬 Feature Importance")
+        
+        # Display feature coefficients
+        coef_df = pd.DataFrame([
+            {"Feature": FEATURE_DISPLAY_NAMES[f], "Coefficient": COEFFICIENTS[f], "Effect": "Positive" if COEFFICIENTS[f] > 0 else "Negative"}
+            for f in FEATURES
+        ])
+        coef_df["Absolute"] = coef_df["Coefficient"].abs()
+        coef_df = coef_df.sort_values("Absolute", ascending=False)
+        
+        st.dataframe(coef_df, use_container_width=True)
+        
+        st.markdown("---")
+        st.markdown("#### 📐 Model Formula")
+        st.latex(r"Logit(P) = 1.168 - 12.879 \times \alpha_{clust} + 0.294 \times \alpha_{deg} + 5.287 \times \alpha_{plv}")
+        st.latex(r"- 0.151 \times \alpha_{path} - 0.223 \times \alpha_{effic} + 0.171 \times \beta_{deg}")
+        st.latex(r"+ 3.070 \times \beta_{plv} - 2.300 \times \beta_{Fp2-O2} - 0.622 \times \gamma_{Fp2-F8}")
+        st.latex(r"+ 3.694 \times \gamma_{Fp2-O2} + 1.201 \times \gamma_{F7-O2}")
+        st.latex(r"P(MCS) = \frac{1}{1 + e^{-Logit(P)}}")
+        
+        st.markdown("---")
+        st.markdown("#### 📖 Interpretation Guide")
+        st.markdown("""
+        - **MCS Positive:** Probability ≥ 0.4502 (Youden's optimal threshold)
+        - **MCS Negative:** Probability < 0.4502
+        - **Sensitivity 81.82%:** Model correctly identifies 81.82% of MCS patients
+        - **Specificity 50.94%:** Model correctly identifies 50.94% of non-MCS patients
+        
+        **Clinical Note:** This prediction model is intended for research purposes only. Clinical decisions should be made by qualified healthcare professionals based on comprehensive patient evaluation.
+        """)
+    
+    # Footer
+    st.markdown("---")
+    st.caption("© 2025 MCS Prediction System | Logistic Regression Model | Version 2.0 | For Research Use Only")
 
-# 添加使用说明
-with st.expander("📖 使用说明"):
-    st.markdown("""
-    ### 如何使用
-    1. 在左侧输入5个脑网络特征参数（范围0-1）
-    2. 可以使用快速预设按钮快速填充示例数据
-    3. 点击"预测MCS概率"按钮
-    4. 查看预测结果和详细计算过程
-    
-    ### 特征说明
-    - **聚类系数**: 衡量网络局部连接密度，值越高表示局部连接越紧密
-    - **度中心性均值**: 节点连接强度的平均值，反映网络整体连接水平
-    - **PLV均值**: 相位锁定值均值，反映功能连接强度
-    
-    ### 模型解读
-    - **阳性（MCS）**: 预测概率 ≥ 0.3802
-    - **阴性（非MCS）**: 预测概率 < 0.3802
-    
-    ### 模型性能
-    - **AUC**: 0.670 (95% CI: 0.565-0.770) - 模型区分能力中等
-    - **准确率**: 63.89% - 整体预测准确率
-    - **敏感度**: 87.27% - 能正确识别87.27%的MCS患者
-    - **特异度**: 39.62% - 能正确识别39.62%的非MCS患者
-    
-    ### 注意事项
-    - 所有特征参数应在0-1范围内
-    - 预测结果仅供参考，不能替代临床诊断
-    - 如有疑问，请咨询专业医生
-    """)
-
-# 页脚
-st.markdown("---")
-st.caption("© 2025 MCS预测验证系统 | 基于逻辑回归模型 | 版本 1.0")
+if __name__ == "__main__":
+    main()
 streamlit
 numpy
