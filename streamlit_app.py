@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import os
 
 st.set_page_config(
     page_title="MCS Prediction System",
@@ -12,6 +11,7 @@ st.set_page_config(
 # ==================== Model Parameters ====================
 INTERCEPT = 1.167968
 THRESHOLD = 0.4502  # Best threshold from Youden index
+YOUDEN_INDEX = 0.3276  # Youden's index
 
 # Model coefficients
 COEFFICIENTS = {
@@ -67,8 +67,20 @@ def predict(features_dict):
     probability = 1 / (1 + np.exp(-logit))
     return probability, logit
 
+# ==================== Initialize session state ====================
+def init_session_state():
+    """Initialize session state with default values"""
+    if 'features_initialized' not in st.session_state:
+        for feature in FEATURES:
+            if feature not in st.session_state:
+                st.session_state[feature] = 0.5
+        st.session_state['features_initialized'] = True
+
 # ==================== Main UI ====================
 def main():
+    # Initialize session state
+    init_session_state()
+    
     # Header
     st.title("🧠 MCS Prediction System")
     st.markdown("**Minimally Conscious State Prediction Model** based on EEG Network Features")
@@ -85,6 +97,7 @@ def main():
         st.metric("Specificity", "50.94%")
         st.metric("F1 Score", "0.7143")
         st.metric("Best Threshold", f"{THRESHOLD:.4f}")
+        st.metric("Youden's Index", f"{YOUDEN_INDEX:.4f}")
         
         st.markdown("---")
         st.markdown("**Model Statistics**")
@@ -113,95 +126,120 @@ def main():
         # Create 3 columns for input organization
         col1, col2, col3 = st.columns(3)
         
-        features_dict = {}
-        
         # Alpha band features
         with col1:
             st.markdown("#### 🧬 Alpha Band Features")
-            features_dict['global_alpha_clustering_coefficient'] = st.number_input(
+            
+            alpha_clust = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_clustering_coefficient'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="alpha_clust",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_clustering_coefficient', 0.5), 
+                step=0.01, format="%.4f",
+                key="alpha_clust_input",
                 help="Global alpha band clustering coefficient"
             )
+            st.session_state['global_alpha_clustering_coefficient'] = alpha_clust
             
-            features_dict['global_alpha_degree_centrality_mean'] = st.number_input(
+            alpha_deg = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_degree_centrality_mean'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="alpha_deg",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_degree_centrality_mean', 0.5),
+                step=0.01, format="%.4f",
+                key="alpha_deg_input",
                 help="Mean degree centrality in alpha band"
             )
+            st.session_state['global_alpha_degree_centrality_mean'] = alpha_deg
             
-            features_dict['global_alpha_mean_plv'] = st.number_input(
+            alpha_plv = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_mean_plv'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="alpha_plv",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_mean_plv', 0.5),
+                step=0.01, format="%.4f",
+                key="alpha_plv_input",
                 help="Mean Phase Locking Value in alpha band"
             )
+            st.session_state['global_alpha_mean_plv'] = alpha_plv
             
-            features_dict['global_alpha_characteristic_path_length'] = st.number_input(
+            alpha_path = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_characteristic_path_length'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="alpha_path",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_characteristic_path_length', 0.5),
+                step=0.01, format="%.4f",
+                key="alpha_path_input",
                 help="Characteristic path length in alpha band"
             )
+            st.session_state['global_alpha_characteristic_path_length'] = alpha_path
             
-            features_dict['global_alpha_global_efficiency'] = st.number_input(
+            alpha_effic = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_alpha_global_efficiency'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="alpha_effic",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_alpha_global_efficiency', 0.5),
+                step=0.01, format="%.4f",
+                key="alpha_effic_input",
                 help="Global efficiency in alpha band"
             )
+            st.session_state['global_alpha_global_efficiency'] = alpha_effic
         
         # Beta and Gamma features
         with col2:
             st.markdown("#### 🧬 Beta Band Features")
-            features_dict['global_beta_degree_centrality_mean'] = st.number_input(
+            
+            beta_deg = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_beta_degree_centrality_mean'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="beta_deg",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_beta_degree_centrality_mean', 0.5),
+                step=0.01, format="%.4f",
+                key="beta_deg_input",
                 help="Mean degree centrality in beta band"
             )
+            st.session_state['global_beta_degree_centrality_mean'] = beta_deg
             
-            features_dict['global_beta_mean_plv'] = st.number_input(
+            beta_plv = st.number_input(
                 FEATURE_DISPLAY_NAMES['global_beta_mean_plv'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="beta_plv",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('global_beta_mean_plv', 0.5),
+                step=0.01, format="%.4f",
+                key="beta_plv_input",
                 help="Mean Phase Locking Value in beta band"
             )
+            st.session_state['global_beta_mean_plv'] = beta_plv
             
-            features_dict['beta_Fp2-O2_PLV'] = st.number_input(
+            beta_fp2_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['beta_Fp2-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="beta_plv_fp2_o2",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('beta_Fp2-O2_PLV', 0.5),
+                step=0.01, format="%.4f",
+                key="beta_fp2_o2_input",
                 help="Beta band PLV between Fp2 and O2 channels"
             )
+            st.session_state['beta_Fp2-O2_PLV'] = beta_fp2_o2
             
             st.markdown("#### 🧬 Gamma Band Features")
-            features_dict['gamma_Fp2-F8_PLV'] = st.number_input(
+            
+            gamma_fp2_f8 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_Fp2-F8_PLV'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="gamma_plv_fp2_f8",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_Fp2-F8_PLV', 0.5),
+                step=0.01, format="%.4f",
+                key="gamma_fp2_f8_input",
                 help="Gamma band PLV between Fp2 and F8 channels"
             )
+            st.session_state['gamma_Fp2-F8_PLV'] = gamma_fp2_f8
             
-            features_dict['gamma_Fp2-O2_PLV'] = st.number_input(
+            gamma_fp2_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_Fp2-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="gamma_plv_fp2_o2",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_Fp2-O2_PLV', 0.5),
+                step=0.01, format="%.4f",
+                key="gamma_fp2_o2_input",
                 help="Gamma band PLV between Fp2 and O2 channels"
             )
+            st.session_state['gamma_Fp2-O2_PLV'] = gamma_fp2_o2
         
         with col3:
             st.markdown("#### 🧬 Additional Features")
-            features_dict['gamma_F7-O2_PLV'] = st.number_input(
+            
+            gamma_f7_o2 = st.number_input(
                 FEATURE_DISPLAY_NAMES['gamma_F7-O2_PLV'],
-                min_value=0.0, max_value=1.0, value=0.5, step=0.01, format="%.4f",
-                key="gamma_plv_f7_o2",
+                min_value=0.0, max_value=1.0, value=st.session_state.get('gamma_F7-O2_PLV', 0.5),
+                step=0.01, format="%.4f",
+                key="gamma_f7_o2_input",
                 help="Gamma band PLV between F7 and O2 channels"
             )
+            st.session_state['gamma_F7-O2_PLV'] = gamma_f7_o2
             
             st.markdown("#### 🚀 Quick Presets")
+            
             if st.button("📊 Average Features", use_container_width=True, key="preset_avg"):
                 for feature in FEATURES:
                     st.session_state[feature] = 0.5
@@ -246,10 +284,8 @@ def main():
         # Prediction button
         st.markdown("---")
         if st.button("🔍 Predict MCS Probability", type="primary", use_container_width=True, key="predict_btn"):
-            # Get current values from session state or inputs
-            for feature in FEATURES:
-                if feature in st.session_state:
-                    features_dict[feature] = st.session_state[feature]
+            # Build features dictionary from session state
+            features_dict = {feature: st.session_state.get(feature, 0.5) for feature in FEATURES}
             
             # Calculate prediction
             probability, logit = predict(features_dict)
@@ -319,7 +355,7 @@ def main():
             st.write("**Data Preview:**", df.head())
             
             if all(feature in df.columns for feature in FEATURES):
-                if st.button("Run Batch Prediction", type="primary"):
+                if st.button("Run Batch Prediction", type="primary", key="batch_predict_btn"):
                     results = []
                     for _, row in df.iterrows():
                         features_dict = {feature: row[feature] for feature in FEATURES}
@@ -345,7 +381,8 @@ def main():
                     csv_result = result_df.to_csv(index=False)
                     st.download_button("📥 Download Results", csv_result, "predictions.csv", "text/csv")
             else:
-                st.error(f"CSV must contain columns: {', '.join(FEATURES)}")
+                missing_cols = [col for col in FEATURES if col not in df.columns]
+                st.error(f"Missing columns: {missing_cols[:5]}...")
     
     # ==================== Tab 3: Preprocessing Conditions ====================
     with tab3:
@@ -413,6 +450,7 @@ def main():
             - **Specificity:** 50.94%
             - **F1 Score:** 0.7143
             - **Best Threshold:** {THRESHOLD:.4f} (Youden's Index)
+            - **Youden's Index:** {YOUDEN_INDEX:.4f}
             """)
         
         with col_info2:
